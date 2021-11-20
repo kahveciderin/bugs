@@ -8,17 +8,17 @@
 template <typename T>
 std::vector<T> operator+(const std::vector<T>& A, const std::vector<T>& B) {
   std::vector<T> AB;
-  AB.reserve(A.size() + B.size());          // preallocate memory
-  AB.insert(AB.end(), A.begin(), A.end());  // add A;
-  AB.insert(AB.end(), B.begin(), B.end());  // add B;
+  AB.reserve(A.size() + B.size());
+  AB.insert(AB.end(), A.begin(), A.end());
+  AB.insert(AB.end(), B.begin(), B.end());
   return AB;
 }
 template <typename T>
 std::vector<T>& operator+=(std::vector<T>& A, const std::vector<T>& B) {
   A.reserve(A.size() +
-            B.size());  // preallocate memory without erase original data
-  A.insert(A.end(), B.begin(), B.end());  // add B;
-  return A;                               // here A could be named AB
+            B.size());
+  A.insert(A.end(), B.begin(), B.end());
+  return A;
 }
 
 Environment::Environment(int width, int height, int food)
@@ -176,7 +176,7 @@ void Bug::cycle(Environment* env) {
   // 0: move left/right
   // 1: move up/down
   // 2: eat nearest
-  // 3: reproduce (TODO)
+  // 3: reproduce
 
   int delta_x = std::clamp(outputs[0], -2.0, 2.0);
   int delta_y = std::clamp(outputs[1], -2.0, 2.0);
