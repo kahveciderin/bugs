@@ -287,6 +287,7 @@ void Bug::clear_brain() {
     for (Connection* connection : neuron->connections) {
       delete connection;
     }
+    delete neuron;
   }
   this->brain.inputs.clear();
   this->brain.hidden.clear();
