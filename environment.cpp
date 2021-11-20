@@ -184,9 +184,11 @@ void Bug::cycle(Environment* env) {
   this->y += delta_y;
   this->energy -= sqrt(pow(delta_x, 2) + pow(delta_y, 2));
 
-  if (outputs[2] > 0.5 || nearest_food_distance < 1.57) {
+  if (outputs[2] > 0.5 /* || nearest_food_distance < 1.57 */) { // require them to be clever enough to eat
     if (nearest_food_distance < 2) {
-      this->energy += env->foods[nearest_food_index].consume(50);
+      this->energy += env->foods[nearest_food_index].consume(15);
+    }else{
+        this->energy -= 5; // if they are too far away, they lose energy
     }
   }
   if (outputs[3] > 0.5) {

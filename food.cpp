@@ -25,6 +25,6 @@ void Food::summon(int max_x, int max_y) {
 };
 
 void Food::draw(SDL_Renderer* rend) {
-  SDL_SetRenderDrawColor(rend, 0, 255, 0, 255);
+  SDL_SetRenderDrawColor(rend, 0, 255, 0, 35 + (this->energy * 2));
   SDL_RenderDrawPoint(rend, this->x, this->y);
 }
