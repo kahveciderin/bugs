@@ -1,9 +1,11 @@
 #include "environment.hpp"
-#include "overloads.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <stdexcept>
 #include <vector>
+
+#include "overloads.hpp"
 
 template <typename T>
 std::vector<T> operator+(const std::vector<T>& A, const std::vector<T>& B) {
@@ -15,8 +17,7 @@ std::vector<T> operator+(const std::vector<T>& A, const std::vector<T>& B) {
 }
 template <typename T>
 std::vector<T>& operator+=(std::vector<T>& A, const std::vector<T>& B) {
-  A.reserve(A.size() +
-            B.size());
+  A.reserve(A.size() + B.size());
   A.insert(A.end(), B.begin(), B.end());
   return A;
 }
@@ -43,9 +44,20 @@ void Environment::draw() {
   }
 }
 
+void Environment::cycle() {
+  for (Food food : this->foods) {
+    food.energy -= 1000;
+    if (food.energy <= 0) {
+      food.summon(this->width, this->height);
+    }
+  }
+}
+
 Bug::Bug() {
   this->x = 0;
   this->y = 0;
+  this->generation = 0;
+  this->age = 0;
   this->energy = 1000;
   this->dead = false;
 }
@@ -178,17 +190,22 @@ void Bug::cycle(Environment* env) {
   // 2: eat nearest
   // 3: reproduce
 
-  int delta_x = std::clamp(outputs[0], -2.0, 2.0);
-  int delta_y = std::clamp(outputs[1], -2.0, 2.0);
+  double move_limit = std::clamp(this->energy * 0.005, 1.0, 100.0);
+  int delta_x = std::clamp(outputs[0], -move_limit,
+                           move_limit);  // fatter creatures move slower
+  int delta_y = std::clamp(outputs[1], -move_limit, move_limit);
   this->x += delta_x;
   this->y += delta_y;
   this->energy -= sqrt(pow(delta_x, 2) + pow(delta_y, 2));
 
-  if (outputs[2] > 0.5 /* || nearest_food_distance < 1.57 */) { // require them to be clever enough to eat
+  if (outputs[2] >
+      0.5 /* || nearest_food_distance < 1.57 */) {  // require them to be clever
+                                                    // enough to eat
     if (nearest_food_distance < 2) {
-      this->energy += env->foods[nearest_food_index].consume(15);
-    }else{
-        this->energy -= 5; // if they are too far away, they lose energy
+      this->energy += env->foods[nearest_food_index].consume(
+          outputs[2]);  // they decide how much to eat
+    } else {
+      this->energy -= 5;  // if they are too far away, they lose energy
     }
   }
   if (outputs[3] > 0.5) {
@@ -199,25 +216,27 @@ void Bug::cycle(Environment* env) {
         bug->clear_brain();
         bug->brain = *this->brain.copy();
         bug->mutate_brain(1234);
+        bug->generation = this->generation + 1;
         bug->dead = false;
+        bug->age = 0;
         bug->x = this->x;
         bug->y = this->y;
-        bug->energy = this->energy / 2;
-        this->energy /= 2;
+        bug->energy = 100;
+        this->energy -= 100;
         not_found = false;
         break;
       }
     }
     if (not_found) {
       // mob cap
-      // Bug* bug = new Bug();
-      // bug->brain = *this->brain.copy();
-      // bug->mutate_brain(1234);
-      // bug->x = this->x;
-      // bug->y = this->y;
-      // bug->energy = this->energy / 2;
-      // this->energy /= 2;
-      // env->bugs.push_back(bug);
+      Bug* bug = new Bug;
+      bug->brain = *this->brain.copy();
+      bug->mutate_brain(1234);
+      bug->x = this->x;
+      bug->y = this->y;
+      bug->energy = 100;
+      this->energy -= 100;
+      env->new_bugs.push_back(bug);
     }
   }
 
@@ -227,8 +246,18 @@ void Bug::cycle(Environment* env) {
   if (this->y > env->height) this->y = this->y - env->height;
 
   this->energy -= 1;  // every cycle
-  if (this->energy < 0) {
+  this->age++;
+  if (this->energy <= 0) {
     this->energy = 0;
     this->dead = true;
   }
+  // if (this->energy > 100000) {  // i dont know HOW the fuck they are having
+  // this
+  //                               // much energy, but here you go. now die
+  //                               bitches
+  //   this->dead = true;
+  // }
+  // if (this->age > 10000) {
+  //   this->dead = true;
+  // }
 }

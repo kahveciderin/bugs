@@ -13,6 +13,8 @@ class Bug {
  public:
   int x, y;
   int energy;
+  int age;
+  int generation;
   bool dead;
   NeuralNetwork brain;
 
@@ -30,7 +32,9 @@ class Environment {
   SDL_Window* win;
   SDL_Renderer* rend;
   std::vector<Bug*> bugs;
+  std::vector<Bug*> new_bugs;
   std::vector<Food> foods;
   void draw();
+  void cycle();
   Environment(int width, int height, int food);
 };
