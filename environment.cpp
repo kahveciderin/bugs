@@ -22,11 +22,21 @@ std::vector<T>& operator+=(std::vector<T>& A, const std::vector<T>& B) {
   return A;
 }
 
-Environment::Environment(int width, int height, int food)
+Environment::Environment(int width, int height, int food, int bugs)
     : width(width), height(height) {
+  this->state.generation = 0;
+
   for (int i = 0; i < food; i++) {
     Food food(width, height, 100);
     this->foods.push_back(food);
+  }
+
+  for (int i = 0; i < bugs; i++) {
+    Bug* bug = new Bug;
+    bug->x = this->width / 2;
+    bug->y = this->height / 2;
+    bug->generate_brain(5, 4, 50);
+    this->bugs.push_back(bug);
   }
 
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -42,15 +52,76 @@ void Environment::draw() {
   for (Food food : foods) {
     food.draw(this->rend);
   }
+  for (Bug* bug : this->bugs) {
+    bug->draw(this->rend);
+  }
 }
 
 void Environment::cycle() {
+  for (Bug* bug : this->new_bugs) {
+    this->bugs.push_back(bug);
+  }
+  this->new_bugs.clear();
+
+  this->state.total_population = 0;
+  this->state.total_energy = 0;
+  this->state.total_age = 0;
+  this->state.total_generation = 0;
+  this->state.total_neurons = 0;
+  this->state.max_energy = 0;
+  this->state.max_age = 0;
+  this->state.max_generation = 0;
+  this->state.max_neurons = 0;
+  this->state.min_energy = std::numeric_limits<int>::max();
+  this->state.min_age = std::numeric_limits<int>::max();
+  this->state.min_generation = std::numeric_limits<int>::max();
+  this->state.min_neurons = std::numeric_limits<int>::max();
+
   for (Food food : this->foods) {
     food.energy -= 1000;
     if (food.energy <= 0) {
       food.summon(this->width, this->height);
     }
   }
+
+  for (Bug* bug : this->bugs) {
+    bug->cycle(this);
+    if (!bug->dead) {
+      this->state.total_population++;
+      this->state.total_energy += bug->energy;
+      this->state.total_age += bug->age;
+      this->state.total_generation += bug->generation;
+
+      if (bug->energy > this->state.max_energy) {
+        this->state.max_energy = bug->energy;
+      }
+      if (bug->age > this->state.max_age) {
+        this->state.max_age = bug->age;
+      }
+      if (bug->generation > this->state.max_generation) {
+        this->state.max_generation = bug->generation;
+      }
+
+      if (bug->energy < this->state.min_energy) {
+        this->state.min_energy = bug->energy;
+      }
+      if (bug->age < this->state.min_age) {
+        this->state.min_age = bug->age;
+      }
+      if (bug->generation < this->state.min_generation) {
+        this->state.min_generation = bug->generation;
+      }
+
+      this->state.total_neurons += bug->brain.hidden.size();
+      if (bug->brain.hidden.size() > this->state.max_neurons) {
+        this->state.max_neurons = bug->brain.hidden.size();
+      }
+      if (bug->brain.hidden.size() < this->state.min_neurons) {
+        this->state.min_neurons = bug->brain.hidden.size();
+      }
+    }
+  }
+  this->state.generation++;
 }
 
 Bug::Bug() {
@@ -96,11 +167,11 @@ void Bug::generate_brain(int inputs, int outputs, int hidden_neurons) {
 void Bug::mutate_brain(double mutation_factor) {
   for (Neuron* neuron : (this->brain.hidden + this->brain.outputs)) {
     for (Connection* connection : neuron->connections) {
-      if ((rand() % 100) / 100 < mutation_factor)
+      if (rand() % (int)floor(1 * (1  / mutation_factor)) == 0)
         connection->weight += ((rand() % 100) / 100) * mutation_factor;
     }
     // sometimes will generate a loop which we check after mutating
-    if ((rand() % 100) / 100 < (mutation_factor * 0.8)) {
+    if (rand() % (int)floor(1 * (1  / mutation_factor)) == 0) {
       Neuron* selected_neuron = (this->brain.inputs + this->brain.hidden)
           [rand() % (this->brain.inputs + this->brain.hidden).size()];
       Connection* connection = new Connection(selected_neuron);
@@ -117,14 +188,14 @@ void Bug::mutate_brain(double mutation_factor) {
         delete connection;
       }
     }
-    if ((rand() % 100) / 100 < (mutation_factor * 0.75)) {
+    if (rand() % (int)floor(2 * (1  / mutation_factor)) == 0) {
       if (neuron->connections.size() > 0) {
         delete neuron->connections.back();
         neuron->connections.pop_back();
       }
     }
   }
-  while ((rand() % 100) / 100 > (mutation_factor * 0.66)) {
+  while (rand() % (int)floor(3 * (1  / mutation_factor)) == 0) {
     Neuron* new_neuron = new Neuron();
     Neuron* selected_neuron =
         (this->brain.inputs +
@@ -203,19 +274,19 @@ void Bug::cycle(Environment* env) {
                                                     // enough to eat
     if (nearest_food_distance < 2) {
       this->energy += env->foods[nearest_food_index].consume(
-          outputs[2]);  // they decide how much to eat
+          outputs[2]);
     } else {
       this->energy -= 5;  // if they are too far away, they lose energy
     }
   }
-  if (outputs[3] > 0.5) {
+  if (outputs[3] > 0.5 && this->energy > 1000) {
     // we will reuse a dead bug
     bool not_found = true;
     for (Bug* bug : env->bugs) {
       if (bug->dead) {
         bug->clear_brain();
         bug->brain = *this->brain.copy();
-        bug->mutate_brain(1234);
+        bug->mutate_brain(0.5);
         bug->generation = this->generation + 1;
         bug->dead = false;
         bug->age = 0;
@@ -230,8 +301,8 @@ void Bug::cycle(Environment* env) {
     if (not_found) {
       // mob cap
       Bug* bug = new Bug;
-      bug->brain = *this->brain.copy();
-      bug->mutate_brain(1234);
+      bug->brain = *this->brain.copy(); 
+      bug->mutate_brain(0.5);
       bug->x = this->x;
       bug->y = this->y;
       bug->energy = 100;

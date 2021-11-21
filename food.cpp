@@ -7,9 +7,10 @@ Food::Food(int max_x, int max_y, int energy)
 
 int Food::consume(int amount) {
   this->energy -= amount;
+  int old_energy = this->energy;
   if (energy < 0) {
     this->summon(this->max_x, this->max_y);
-    return amount + energy;
+    return amount + old_energy;
   }
   if (energy == 0) {
     this->summon(this->max_x, this->max_y);
